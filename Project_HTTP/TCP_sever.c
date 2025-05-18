@@ -6,6 +6,7 @@
 	#include <unistd.h> //for close
 	#include <stdlib.h> //for exit
 	#include <string.h> //for memset
+    #include <windows.h> //nodig voor CreateThread 
 	void OSInit( void )
 	{
 		WSADATA wsaData;
@@ -38,42 +39,52 @@
 
 int initialization();
 int connection( int internet_socket );
-void execution( int internet_socket );
-void cleanup( int internet_socket, int client_internet_socket );
 
-int main( int argc, char * argv[] )
+int main(int argc, char *argv[])
 {
-	//////////////////
-	//Initialization//
-	//////////////////
-
 	OSInit();
-
 	int internet_socket = initialization();
+    //bij gebruik van threads kan elke client op elke zelfde momment laten behandelen
+	while (1)
+	{
+		int client_socket = connection(internet_socket); // wacht op client
 
-	//////////////
-	//Connection//
-	//////////////
+		#ifdef _WIN32
+		HANDLE thread = CreateThread(
+			NULL, 0,
+			execution,
+			(LPVOID)(intptr_t)client_socket,
+			0, NULL
+		);
+		if (thread == NULL)
+		{
+			perror("CreateThread");
+			close(client_socket);
+		}
+		else
+		{
+			CloseHandle(thread); // laat thread zelf verder leven
+		}
+		#else
+		pthread_t thread;
+		if (pthread_create(&thread, NULL, execution, (void *)(intptr_t)client_socket) != 0)
+		{
+			perror("pthread_create");
+			close(client_socket);
+		}
+		else
+		{
+			pthread_detach(thread); // laat thread zelf opruimen
+		}
+		#endif
+	}
 
-	int client_internet_socket = connection( internet_socket );
-
-	/////////////
-	//Execution//
-	/////////////
-
-	execution( client_internet_socket );
-
-
-	////////////
-	//Clean up//
-	////////////
-
-	cleanup( internet_socket, client_internet_socket );
-
+	// Normaal kom je hier nooit
+	cleanup(internet_socket, -1);
 	OSCleanup();
-
 	return 0;
 }
+
 
 int initialization()
 {
@@ -155,30 +166,42 @@ int connection( int internet_socket )
 	return client_socket;
 }
 
-void execution( int internet_socket )
+#ifdef _WIN32
+DWORD WINAPI execution(LPVOID socket_ptr)
+#else
+void *execution(void *socket_ptr)
+#endif
 {
-	//Step 3.1
-	int number_of_bytes_received = 0;
+	int internet_socket = (int)(intptr_t)socket_ptr;
+
 	char buffer[1000];
-	number_of_bytes_received = recv( internet_socket, buffer, ( sizeof buffer ) - 1, 0 );
-	if( number_of_bytes_received == -1 )
+	int number_of_bytes_received = recv(internet_socket, buffer, sizeof(buffer) - 1, 0);
+	if (number_of_bytes_received == -1)
 	{
-		perror( "recv" );
+		perror("recv");
 	}
 	else
 	{
 		buffer[number_of_bytes_received] = '\0';
-		printf( "Received : %s\n", buffer );
+		printf("Received : %s\n", buffer);
 	}
 
-	//Step 3.2
-	int number_of_bytes_send = 0;
-	number_of_bytes_send = send( internet_socket, "Hello TCP world!", 16, 0 );
-	if( number_of_bytes_send == -1 )
+	int number_of_bytes_send = send(internet_socket, "Hello TCP world!", 16, 0);
+	if (number_of_bytes_send == -1)
 	{
-		perror( "send" );
+		perror("send");
 	}
+
+	shutdown(internet_socket, SD_RECEIVE);
+	close(internet_socket);
+
+	#ifdef _WIN32
+	return 0;
+	#else
+	return NULL;
+	#endif
 }
+
 
 void cleanup( int internet_socket, int client_internet_socket )
 {

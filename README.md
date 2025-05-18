@@ -1,8 +1,8 @@
 # Netwerken_HTTP_client
 
-TCP server luistert op poort 22
+TCP server luistert op poort 22 //done
 
-TCP server accepteert meerdere verbindingen
+TCP server accepteert meerdere verbindingen//done
 
 TCP server achterhaalt IP adres van client
 
@@ -30,7 +30,8 @@ TCP server houdt een teller bij hoeveel gegevens succesvol zijn afgeleverd en lo
 
 TCP server sluit de verbinding nadat de client de verbinding sluit
 
-TCP server kan meerdere verbindingen simultaan verwerken
+TCP server kan meerdere verbindingen simultaan verwerken // done
+uitleg:bij gebruik van threads kunt ge gelijktijdig gebruiken op dezelfde poort en heb crash errors erbij gedaan
 
 Het geheel werk volledig zonder crashen en er wordt efficiënt met de resources (i.e. memory en sockets) van de computer gebruik gemaakt
 
